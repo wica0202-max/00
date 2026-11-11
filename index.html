@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>حاسب مصروفاتي</title>
+<style>
+:root{--bg:#eef2f4;--card:#fff;--tx:#14202b;--mu:#5d6b78;--ac:#0b6e6e;--acs:#dcefee;--bad:#b4231a;--bads:#fde8e6;--bd:#d9e0e5;--on:#fff;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1418;--card:#18212a;--tx:#e8eef2;--mu:#93a1ad;--ac:#3fc7bf;--acs:#143436;--bad:#ff8a80;--bads:#3a1c1a;--bd:#2a3641;--on:#06201f;color-scheme:dark}}
+:root[data-theme="dark"]{--on:#06201f;--bg:#0e1418;--card:#18212a;--tx:#e8eef2;--mu:#93a1ad;--ac:#3fc7bf;--acs:#143436;--bad:#ff8a80;--bads:#3a1c1a;--bd:#2a3641;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.5 system-ui,"Segoe UI",Tahoma,Arial,sans-serif;padding-bottom:76px}
+main{max-width:560px;margin:0 auto;padding:14px}
+h1{font-size:20px;margin:6px 0 2px}h2{font-size:16px;margin:0 0 10px}
+.mu{color:var(--mu);font-size:14px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px;margin:12px 0}
+.big{background:var(--ac);color:var(--on);border-color:var(--ac)}
+.big .mu{color:var(--on);opacity:.85}.big b{font-size:30px;display:block;line-height:1.2}
+
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--bd)}
+.row:last-child{border:0}
+.neg{color:var(--bad)}
+input,select{font:inherit;color:var(--tx);background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:10px;width:100%;box-sizing:border-box}
+label{display:block;font-size:14px;color:var(--mu);margin:8px 0 4px}
+button{font:inherit;border:0;border-radius:8px;padding:10px 14px;background:var(--ac);color:var(--on);cursor:pointer}
+
+button.s{background:var(--acs);color:var(--ac);padding:6px 10px;font-size:14px}
+button.d{background:transparent;color:var(--bad);padding:6px}
+button.w{width:100%;margin-top:12px}
+.al{background:var(--bads);border-color:var(--bad)}
+.al .row{border-color:var(--bad)}
+.g{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--card);border-top:1px solid var(--bd);padding-bottom:env(safe-area-inset-bottom,0px)}
+nav button{flex:1;background:none;color:var(--mu);border-radius:0;padding:14px 4px;font-size:14px}
+nav button.on{color:var(--ac);font-weight:700;box-shadow:inset 0 3px 0 var(--ac)}
+</style>
+</head>
+<body>
+<main id="app"></main>
+<nav id="nav"></nav>
+<script>
+const K='budget-v1';let S=null;
+const LN=window.Capacitor&&Capacitor.Plugins&&Capacitor.Plugins.LocalNotifications;
+let _st=null;
+function sched(){if(!LN)return;clearTimeout(_st);_st=setTimeout(async()=>{try{
+const p=await LN.getPending();if(p.notifications.length)await LN.cancel({notifications:p.notifications.map(n=>({id:n.id}))});
+const t=T0(),now=Date.now(),list=[];
+S.obs.forEach((o,oi)=>{for(let k=0;k<6;k++){const d=mk(t.getFullYear(),t.getMonth()+k,o.day);if(S.paid[pk(o,d)])continue;
+const at=new Date(d.getFullYear(),d.getMonth(),d.getDate()-S.lead,S.hour??9,0,0);if(at.getTime()<=now)continue;
+list.push({id:oi*100+k+1,title:'استحقاق: '+o.name,body:amtTxt(o,d)+' — '+dl(S.lead),schedule:{at,allowWhileIdle:true}})}});
+if(list.length)await LN.schedule({notifications:list})}catch(e){}},400)}
+try{S=JSON.parse(localStorage.getItem(K))}catch(e){}
+S=S||{salary:0,day:1,lead:2,obs:[],exps:[],paid:{},seen:{},first:null};
+const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}sched()};
+const $=s=>document.querySelector(s);
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt=n=>(Math.round(n*100)/100).toLocaleString('ar-EG')+' ج.م';
+const dim=(y,m)=>new Date(y,m+1,0).getDate();
+const mk=(y,m,d)=>new Date(y,m,Math.min(d,dim(y,m)));
+const T0=()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth(),d.getDate())};
+const ds=d=>d.toLocaleDateString('ar-EG',{day:'numeric',month:'long'});
+const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+function cs(d){let y=d.getFullYear(),m=d.getMonth(),s=mk(y,m,S.day);if(s>d)s=mk(y,m-1,S.day);return s}
+const Ci=d=>{const s=cs(d);return s.getFullYear()*12+s.getMonth()};
+const bounds=i=>{const y=Math.floor(i/12),m=i%12;const a=mk(y,m,S.day),b=mk(y,m+1,S.day);b.setDate(b.getDate()-1);return[a,b]};
+const lastVa=(o,i)=>{for(let k=i;k>=i-24;k--){const v=S.va[o.id+':'+k];if(v!=null)return v}return o.amt};
+const oAmt=(o,i)=>o.fixed===false?lastVa(o,i):o.amt;
+const obT=i=>S.obs.reduce((a,o)=>a+oAmt(o,i),0);
+const amtTxt=(o,d)=>{const i=Ci(d);return fmt(oAmt(o,i))+(o.fixed===false&&S.va[o.id+':'+i]==null?' (تقديري)':'')};
+const vin=(o,d)=>{if(o.fixed!==false)return'';const i=Ci(d),v=S.va[o.id+':'+i];return`<br><input type="number" inputmode="decimal" placeholder="المبلغ الفعلي للشهر ده" value="${v==null?'':v}" style="margin-top:6px;padding:6px" onchange="setVa(${o.id},${i},this.value)">`};
+function setVa(id,i,v){v=+v;if(v>0)S.va[id+':'+i]=v;else delete S.va[id+':'+i];save();render()}
+const exT=i=>S.exps.filter(e=>Ci(new Date(e.date+'T00:00:00'))===i).reduce((a,e)=>a+e.amt,0);
+function bal(idx){let c=0,r;const f=Math.min(S.first==null?idx:S.first,idx);for(let i=f;i<=idx;i++){const net=S.salary+c-obT(i);r={carry:c,net,ex:exT(i),rem:net-exT(i)};c=r.rem}return r}
+const pk=(o,d)=>o.id+':'+d.getFullYear()+'-'+d.getMonth();
+function nextDue(o){const t=T0();for(let k=0;k<3;k++){const d=mk(t.getFullYear(),t.getMonth()+k,o.day);if(!S.paid[pk(o,d)])return d}}
+function alerts(){const t=T0(),out=[];S.obs.forEach(o=>{const d=nextDue(o);if(!d)return;const days=Math.round((d-t)/864e5);if(days<=S.lead)out.push({o,d,days})});return out.sort((a,b)=>a.days-b.days)}
+const dl=n=>n<0?'متأخر '+(-n)+' يوم':n===0?'النهارده':n===1?'بكره':'بعد '+n+' أيام';
+let tab='home';
+S.va=S.va||{};
+function applyTheme(){const t=S.theme||'auto';if(t==='auto')document.documentElement.removeAttribute('data-theme');else document.documentElement.setAttribute('data-theme',t)}
+function setTheme(v){S.theme=v;save();applyTheme();render()}
+applyTheme();
+if(S.first==null){S.first=Ci(T0());save()}
+
+function render(){
+ const ci=Ci(T0()),b=bal(ci),[a,z]=bounds(ci),al=alerts();
+ let h='';
+ if(tab==='home'){
+  h+=`<h1>مصروفاتي</h1><div class="mu">دورة المرتب: من ${ds(a)} إلى ${ds(z)}</div>
+  <div class="card big"><span class="mu">المتبقي معاك دلوقتي (هيترحّل للشهر الجاي)</span><b>${fmt(b.rem)}</b></div>`;
+  if(al.length)h+=`<div class="card al"><h2>تنبيهات الاستحقاق</h2>${al.map(x=>`<div class="row"><span>${esc(x.o.name)} — ${amtTxt(x.o,x.d)}<br><span class="mu">${ds(x.d)} · ${dl(x.days)}</span>${vin(x.o,x.d)}</span><button class="s" onclick="pay(${x.o.id})">تم الدفع</button></div>`).join('')}</div>`;
+  h+=`<div class="card"><div class="row"><span>المرتب</span><b>${fmt(S.salary)}</b></div>
+  <div class="row"><span>مرحّل من الشهر اللي فات</span><b class="${b.carry<0?'neg':''}">${fmt(b.carry)}</b></div>
+  <div class="row"><span>الالتزامات</span><b>− ${fmt(obT(ci))}</b></div>
+  <div class="row"><span>صافي بعد الالتزامات</span><b class="${b.net<0?'neg':''}">${fmt(b.net)}</b></div>
+  <div class="row"><span>مصروفات الشهر</span><b>− ${fmt(b.ex)}</b></div>
+  <div class="row"><span>المتبقي</span><b class="${b.rem<0?'neg':''}">${fmt(b.rem)}</b></div></div>`;
+  if(!S.salary)h+=`<div class="card">ابدأ بإدخال مرتبك ويوم قبضه من تبويب «الإعدادات».</div>`;
+ }
+ if(tab==='ob'){
+  h+=`<h1>الالتزامات</h1><div class="card"><label>اسم الالتزام</label><input id="on" placeholder="إيجار، قسط، كهرباء…">
+  <div class="g"><div><label>المبلغ (للمتغير: تقديري)</label><input id="oa" type="number" inputmode="decimal"></div><div><label>يوم الاستحقاق (1–31)</label><input id="od" type="number" min="1" max="31" inputmode="numeric"></div></div>
+  <label>النوع</label><select id="ot"><option value="1">ثابت (نفس المبلغ كل شهر)</option><option value="0">متغير (بيتغير من شهر لشهر)</option></select><button class="w" onclick="addOb()">إضافة التزام</button></div><div class="card">`;
+  h+=S.obs.length?S.obs.map(o=>{const d=nextDue(o),n=Math.round((d-T0())/864e5);return`<div class="row"><span>${esc(o.name)} — ${amtTxt(o,d)}<br><span class="mu">${o.fixed===false?'متغير':'ثابت'} · كل شهر يوم ${o.day} · الجاي: ${ds(d)} (${dl(n)})</span>${vin(o,d)}</span><span><button class="s" onclick="pay(${o.id})">تم الدفع</button><button class="d" onclick="delOb(${o.id})">حذف</button></span></div>`}).join(''):'<span class="mu">لسه مفيش التزامات. أضف أول واحد من فوق.</span>';
+  h+='</div>';
+ }
+ if(tab==='ex'){
+  const list=S.exps.filter(e=>Ci(new Date(e.date+'T00:00:00'))===ci).sort((x,y)=>y.date.localeCompare(x.date));
+  h+=`<h1>المصروفات</h1><div class="card"><label>على إيه صرفت؟</label><input id="en" placeholder="أكل، مواصلات…">
+  <div class="g"><div><label>المبلغ</label><input id="ea" type="number" inputmode="decimal"></div><div><label>التاريخ</label><input id="ed" type="date" value="${iso(T0())}"></div></div>
+  <button class="w" onclick="addEx()">إضافة مصروف</button></div><div class="card"><h2>مصروفات الدورة الحالية: ${fmt(b.ex)}</h2>`;
+  h+=list.length?list.map(e=>`<div class="row"><span>${esc(e.name)} — ${fmt(e.amt)}<br><span class="mu">${ds(new Date(e.date+'T00:00:00'))}</span></span><button class="d" onclick="delEx(${e.id})">حذف</button></div>`).join(''):'<span class="mu">مفيش مصروفات في الدورة دي لسه.</span>';
+  h+='</div>';
+ }
+ if(tab==='set'){
+  const nt=LN?'ln':'Notification' in window?Notification.permission:'na';
+  h+=`<h1>الإعدادات</h1><div class="card"><label>المرتب الشهري (صافي بعد أي خصومات)</label><input id="sa" type="number" inputmode="decimal" value="${S.salary||''}" onchange="setS('salary',+this.value)">
+  <label>يوم قبض المرتب في الشهر (1–31)</label><input id="sd" type="number" min="1" max="31" value="${S.day}" onchange="setS('day',Math.min(31,Math.max(1,+this.value||1)))">
+  <label>ينبهني قبل الاستحقاق بـ</label><select onchange="setS('lead',+this.value)">${[0,1,2,3,5,7,10,14].map(n=>`<option value="${n}" ${S.lead===n?'selected':''}>${n===0?'يوم الاستحقاق نفسه':n===1?'يوم واحد':n===2?'يومين':n+' أيام'}</option>`).join('')}</select></div>
+  <div class="card"><label>وقت التنبيه في اليوم</label><select onchange="setS('hour',+this.value)">${[6,7,8,9,10,12,14,16,18,20,22].map(h=>`<option value="${h}" ${(S.hour??9)===h?'selected':''}>${h<12?h+' الصبح':h===12?'12 الضهر':(h-12)+' بعد الضهر/مساءً'}</option>`).join('')}</select></div><div class="card"><label>المظهر</label><select onchange="setTheme(this.value)">${[['auto','تلقائي (زي الموبايل)'],['light','فاتح'],['dark','داكن']].map(t=>`<option value="${t[0]}" ${(S.theme||'auto')===t[0]?'selected':''}>${t[1]}</option>`).join('')}</select></div><div class="card"><h2>إشعارات الموبايل</h2><p class="mu">${LN?'الإشعارات بتتجدول على الموبايل وبتوصل حتى لو التطبيق مقفول.':'الإشعارات بتوصل وانت فاتح التطبيق. التنبيه جوه الشاشة الرئيسية بيظهر دايمًا.'}</p>
+  ${nt==='ln'?'<button onclick="askN()">تفعيل الإشعارات</button>':nt==='granted'?'<span class="mu">الإشعارات مفعّلة ✓</span>':nt==='na'||nt==='denied'?'<span class="mu">المتصفح مش مسمح بالإشعارات هنا.</span>':'<button onclick="askN()">تفعيل الإشعارات</button>'}</div>`;
+ }
+ $('#app').innerHTML=h;
+ $('#nav').innerHTML=[['home','الرئيسية'],['ob','الالتزامات'],['ex','المصروفات'],['set','الإعدادات']].map(t=>`<button class="${tab===t[0]?'on':''}" onclick="go('${t[0]}')">${t[1]}</button>`).join('');
+}
+function go(t){tab=t;render();window.scrollTo(0,0)}
+function setS(k,v){S[k]=v;save();render()}
+function addOb(){const n=$('#on').value.trim(),a=+$('#oa').value,d=Math.min(31,Math.max(1,+$('#od').value));if(!n||!a||!d)return alert('اكتب الاسم والمبلغ ويوم الاستحقاق');S.obs.push({id:Date.now(),name:n,amt:a,day:d,fixed:$('#ot').value==='1'});save();render()}
+function delOb(id){S.obs=S.obs.filter(o=>o.id!==id);save();render()}
+function pay(id){const o=S.obs.find(x=>x.id===id),d=nextDue(o);S.paid[pk(o,d)]=1;save();render()}
+function addEx(){const n=$('#en').value.trim(),a=+$('#ea').value,d=$('#ed').value;if(!n||!a||!d)return alert('اكتب البند والمبلغ والتاريخ');S.exps.push({id:Date.now(),name:n,amt:a,date:d});const c=Ci(new Date(d+'T00:00:00'));if(c<S.first)S.first=c;save();render()}
+function delEx(id){S.exps=S.exps.filter(e=>e.id!==id);save();render()}
+function askN(){if(LN){LN.requestPermissions().then(()=>{sched();render()});return}try{Notification.requestPermission().then(render)}catch(e){}}
+function notify(){try{if(!('Notification' in window)||Notification.permission!=='granted')return;const t=iso(T0());alerts().forEach(x=>{const k=x.o.id+':'+t;if(S.seen[k])return;S.seen[k]=1;new Notification('استحقاق: '+x.o.name,{body:amtTxt(x.o,x.d)+' — '+dl(x.days)})});save()}catch(e){}}
+render();notify();sched();setInterval(()=>{notify();if(tab==='home')render()},60000);
+</script>
+</body>
+</html>
