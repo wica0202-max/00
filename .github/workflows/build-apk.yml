@@ -14,10 +14,31 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - name: Prepare www
+      - name: Prepare project files
         run: |
           mkdir -p www
           if [ ! -f www/index.html ]; then cp index.html www/index.html; fi
+          cat > package.json <<'EOT'
+          {
+            "name": "budget-app",
+            "version": "1.0.0",
+            "private": true,
+            "dependencies": {
+              "@capacitor/android": "^7.0.0",
+              "@capacitor/cli": "^7.0.0",
+              "@capacitor/core": "^7.0.0",
+              "@capacitor/local-notifications": "^7.0.0"
+            }
+          }
+          EOT
+          cat > capacitor.config.json <<'EOT'
+          {
+            "appId": "com.mymoney.budget",
+            "appName": "حاسب مصروفاتي",
+            "webDir": "www"
+          }
+          EOT
+          rm -f package-lock.json
       - run: npm install
       - run: npx cap add android
       - name: Add permissions
